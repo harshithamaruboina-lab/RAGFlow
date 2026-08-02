@@ -1,0 +1,44 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ragflow_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ragflow
+      POSTGRES_PASSWORD: ragflow
+      POSTGRES_DB: ragflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - ragflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ragflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Optional: full containerized backend. Not needed for Phase 0 local dev,
+  # since you already have a working backend/.venv. Start with:
+  #   docker compose --profile full up -d --build
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ragflow_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://ragflow:ragflow@db:5432/ragflow
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data/uploads:/app/data/uploads
+    profiles:
+      - full
+
+volumes:
+  ragflow_pg_data:
